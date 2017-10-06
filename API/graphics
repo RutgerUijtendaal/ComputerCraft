@@ -1,0 +1,181 @@
+--Graphic/drawing functions for CC Programs
+
+--[[
+    Completely reset and clear the screen
+]]
+function resetScreen()
+    term.setTextColor(colors.white)
+    term.setBackgroundColor(colors.black)
+    term.clear()
+    term.setCursorPos(1,1)
+end
+
+--[[
+    Clear the CC terminal. Ensures the monitor is untouched
+]]
+function clearTerm()
+    local currentTerm = term.current()
+    term.redirect(term.native())
+    resetScreen()
+    term.redirect(currentTerm)
+end
+
+--[[
+    Draw a color filled Line
+
+    @param {int} x - Start x coor of line
+    @param {int} y - Start y coor of line
+    @param {int} length - Lenght of the Line 
+    @param {color} color - Background color of the line
+]]
+function drawLine(x, y, length, backgroundColor)
+    term.setBackgroundColor(backgroundColor)
+    term.setCursorPos(x,y)
+    term.write(string.rep(" ", length))
+end
+
+
+--[[ 
+    Draw a horizontal dotted line
+
+    @param {int} x - Start x coor of dots line
+    @param {int} y - Start y coor of dots line
+    @param {int} length - Lenght of the dots line 
+    @param {color} [backgroundColor = colors.black] - Background color dots line
+    @param {color} [textColor = colors.white] - Color of the dots line
+]]
+function drawHorizontalDottedLine(x, y, length, backgroundColor, textColor)
+    backgroundColor = backgroundColor or colors.black
+    textColor = textColor or colors.white
+    term.setBackgroundColor(backgroundColor)
+    term.setCursorPos(x,y)
+    term.write(string.rep("-", length))
+end
+
+--[[
+    Draw a vertical dotted line
+
+    @param {int} x - Start x coor of dots line
+    @param {int} y - Start y coor of dots line
+    @param {int} length - Lenght of the dots line 
+    @param {color} [backgroundColor = colors.black] - Background color dots line
+    @param {color} [textColor = colors.white] - Color of the dots line
+]]
+function drawVerticalDottedLine(x, y, length, backgroundColor, textColor)
+    backgroundColor = backgroundColor or colors.black
+    textColor = textColor or colors.white
+    term.setTextColor(textColor)
+    term.setBackgroundColor(backgroundColor)
+    term.setCursorPos(x,y)
+    local i = 1
+    while i < length+1 do 
+        term.write("|")
+        term.setCursorPos(x,y+i)
+        i = i + 1
+    end
+end
+
+--[[ 
+    Write text to the monitor
+
+    @param {int} x - Start x coor of text
+    @param {int} y - Start y coor of text
+    @param {string} text - Text to display on screen
+    @param {color} [backgroundColor = colors.black] - Background color text
+    @param {color} [textColor = colors.white] - Color of the text
+]]
+function writeText(x, y, text, backgroundColor, textColor)
+    backgroundColor = backgroundColor or colors.black
+    textColor = textColor or colors.white
+    term.setBackgroundColor(backgroundColor)
+    term.setTextColor(textColor)
+    term.setCursorPos(x,y)
+    term.write(tostring(text))
+end
+
+--[[ 
+    Write text to the monitor
+
+    @param {int} x - End x coor of text
+    @param {int} y - End y coor of text
+    @param {string} text - Text to display on screen
+    @param {color} [backgroundColor = colors.black] - Background color text
+    @param {color} [textColor = colors.white] - Color of the text
+]]
+function writeTextAllignRight(x, y, text, backgroundColor,  textColor)
+    backgroundColor = backgroundColor or colors.black
+    textColor = textColor or colors.white
+    term.setBackgroundColor(backgroundColor)
+    term.setTextColor(textColor)
+    term.setCursorPos(x-string.len(text),y)
+    term.write(tostring(text))
+end
+
+--[[
+    Creates a window using the grid layout. Creates borders and puts in window header 
+
+    @param {string} wName - Name of the Window
+    @param {int} wSize - Size of the Window height. Can be 1 for small (half mon height) or 2 for big (full mon height)
+    @param {int} wPosition - Position of the window in the grid layout
+                                grid layout
+                                ---------
+                                |0, 1, 2|
+                                |3, 4, 5|
+                                ---------
+    @param {color} wColor - Color to set the window name to
+    @return {object} - Handle for the CC Window object              
+]]
+function setupWindow(wName, wSize, wPosition, wColor)
+    --Validate input
+    local wName = tostring(wName)
+    if wSize == 2
+        and wPosition > 2 
+    then
+       utils.error("Can't create big window in bottom of grid")
+    end
+    if wSize < 1
+        or wSize > 2
+    then
+        utils.error("Window size of ".. wName .. " out of bounds")
+    end
+    if wPosition < 0 
+        or wPosition > 5
+    then
+        utils.error("Grid position of " .. wName .. " out of bounds")
+    end
+    --Get Monitor size and et the window base size
+    local monitorWidth, monitorHeight = term.getSize()
+    local modifier = 0
+    local windowWidth = math.floor(monitorWidth/3) --Window normal width is 1/3 of mon size
+    if wPosition == 0
+        or wPosition == 3
+    then
+        windowWidth = windowWidth + 1
+    else
+        modifier = 1
+    end
+    local windowHeight = math.floor(monitorHeight/2) --Window normal height is 1/2 of mon size
+    --Create window. Uses some weird math to get the window size/position right
+    local window = window.create(term.current(), 
+            ((wPosition%3)*windowWidth)+1+modifier,              --Distance to the right. wPosition%3 gives 0, 1 or 2. Multiply by the width of a window and add 1 to always start at 1
+            ((math.floor(wPosition/3))*windowHeight)+1, --Dinstance from top. wPosition 3, 4, 5 have to be at windowHeight. If wPos/3 floors to 1 the window's on the 2nd row
+            windowWidth,                       --Width stays the same, all windows are 1/3 of screen width. If it's the first window we add 1 to make sure we fill the whole screen
+            (windowHeight*wSize)+1)                     --Window height is half a mon height. Multiple by wSize to get either full or half total mon
+    --Redirect the term commands to current window
+    local mon = term.redirect(window)
+    --Save the windows width and height to use with drawing
+    local currentWindowWidth, currentWindowHeight = term.getSize()
+    --Draw all the window borders
+    drawHorizontalDottedLine(1, 1, currentWindowWidth)
+    drawHorizontalDottedLine(1, 3, currentWindowWidth)
+    drawHorizontalDottedLine(1, currentWindowHeight, currentWindowWidth)
+    drawVerticalDottedLine(currentWindowWidth, 1, currentWindowHeight)
+    drawVerticalDottedLine(1, 1, currentWindowHeight)    
+    --Set the windows name. Colors the rest of the bar with blank spaces to fill the entire row with color
+    local nameString = tostring(wName) .. string.rep(" ", currentWindowWidth-string.len(wName)-2)
+    writeText(2, 2, nameString, wColor)
+    --Redirect term back to monitor
+    term.redirect(mon)
+    --Return the window object
+    return window
+end

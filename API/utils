@@ -1,0 +1,141 @@
+os.loadAPI('constants')
+
+--Basic utility functions for CC programs
+
+--[[ 
+    Creates a text file in local dir, write data to it
+
+    @param {string} fileName - Name of the create file
+    @param {string} toWrite - Text to write to file
+]]
+function writeToFile(fileName, toWrite)
+    hWrite = fs.open(fileName, fs.exists(fileName) and "a" or "w")
+    hWrite.write(toWrite)
+    hWrite.close()
+end
+
+
+--[[
+    https://stackoverflow.com/questions/15706270/sort-a-table-in-lua
+    Basic table sorting
+
+    @parms {table} t - Table to sort
+    @param {function} [order] - Sort order
+    @return {table} - Sorted table
+]]
+function sortTable(t, order)
+    -- collect the keys
+    local keys = {}
+    for k in pairs(t) do keys[#keys+1] = k end
+
+    -- if order function given, sort by it by passing the table and keys a, b,
+    -- otherwise just sort the keys 
+    if order then
+        table.sort(keys, function(a,b) return order(t, a, b) end)
+    else
+        table.sort(keys)
+    end
+
+    -- return the iterator function
+    local i = 0
+    return function()
+        i = i + 1
+        if keys[i] then
+            return keys[i], t[keys[i]]
+        end
+    end
+end
+
+--[[
+    https://stackoverflow.com/questions/2282444/how-to-check-if-a-table-contains-an-element-in-lua
+    Check if a table contains element
+
+    @param {table} table - Table to iterate
+    @param {string} - Element to search for
+    @return {Boolean} - Return if element is found
+]]
+function tableHasElement (table, element)
+    for index, value in ipairs(table) do
+        if value == element then
+            return true
+        end
+    end
+    return false
+end
+
+--[[
+    Print function for debugging, always prints to PC Term instead of any attached monitors/windows
+
+    @param {string} text - Print message to display
+]]
+function debugPrint(debug, text)
+    if debug then
+        local currentTerm = term.current()
+        local nativeTerm = term.native()
+        term.redirect(nativeTerm)
+        print("|" .. text)
+        term.redirect(currentTerm)
+        sleep(0.1)
+    end
+end
+
+--[[
+    Debug Error Print, prints error to term, reboots after key is pressed
+
+    @param {string} text - Error message to display
+]]
+function error(text)
+    local currentTerm = term.current()
+    local nativeTerm = term.native()
+    term.redirect(nativeTerm)
+    term.setTextColor(colors.red)
+    print("Error: " .. text)
+    print("Press any key to reboot")
+    local evt, p1, p2, p3, p4, p5 = os.pullEvent("key")  
+    term.setTextColor(colors.white)
+    os.reboot() 
+end
+
+--[[
+    Get the first connected peripheral with pName and return the handler
+    If no peripheral is found terminate
+
+    @param {string} pName - Name of the peripheral to search for
+    @return {object} -  Handle of the first connected peripheral found.
+]]
+function getPeripheralHandle(pName)
+   local pList = peripheral.getNames()
+   local i, name
+   for i, name in pairs(pList) do
+      if peripheral.getType(name) == pName then
+         return peripheral.wrap(name)
+      end
+   end
+ 
+   utils.error("No Peripheral with name '" .. pName .. "' connected")
+end
+
+--[[
+    Search for any modems to start broadcasting
+    If no replyChannel is specified, terminate  
+
+    @param {int} rChannel - Request channel to listen for incoming events
+    @return {object} - Handle for the first connected modem.
+]]
+function getAndOpenModems(rChannel)
+    if rChannel == nil then
+        utils.error("No rednet channel specified")
+    end
+    local pList = peripheral.getNames()
+    local i, name
+    for i, name in pairs(pList) do
+        if peripheral.getType(name) == "modem" then
+            peripheral.call(name, "open", rChannel)
+            --Every Modem opens CC_COMMAND_CHANNEL to listen for term commands
+            peripheral.call(name, "open", constants.CC_COMMAND_CHANNEL)
+            utils.debugPrint(constants.DEBUG, "        Modem opened on Ch " .. rChannel)
+            return peripheral.wrap(name)
+        end
+    end
+    utils.error("No modem connected")
+end
